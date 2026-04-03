@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XAI Medical Diagnostic Dashboard</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #1e1e2f; 
+            color: #ffffff; 
+            text-align: center; 
+            padding: 30px; 
+        }
+        .dashboard { 
+            background: #2a2a40; 
+            padding: 30px; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3); 
+            max-width: 700px; 
+            margin: auto; 
+        }
+        .upload-btn { 
+            background: #007bff; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin-top: 15px; 
+            transition: background 0.3s;
+        }
+        .upload-btn:hover { background: #0056b3; }
+        
+        /* Overlay Magic Happens Here */
+        .image-wrapper { 
+            position: relative; 
+            display: inline-block; 
+            margin-top: 25px; 
+            border: 2px solid #444; 
+            border-radius: 8px; 
+            overflow: hidden;
+            background: #000;
+        }
+        .image-wrapper img { 
+            display: block; 
+            max-width: 400px; 
+            width: 100%; 
+            height: auto; 
+        }
+        #heatmapImage { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            opacity: 0.6; /* Default transparency */
+            mix-blend-mode: screen; /* Blends colors nicely with dark X-rays */
+            transition: opacity 0.2s ease-in-out;
+        }
+        
+        .controls { margin-top: 20px; display: none; }
+        #status { margin-top: 15px; color: #aaa; font-style: italic; }
+        #resultText { margin-top: 15px; font-size: 24px; color: #ff4757; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <h2>XAI Chest X-Ray Analysis</h2>
+        <p>Upload a scan to detect diseases and view the AI's focal regions.</p>
+        
+        <input type="file" id="imageInput" accept="image/*" style="margin-bottom: 15px;">
+        <br>
+        <button class="upload-btn" onclick="analyzeImage()">Analyze Scan</button>
+        
+        <div id="status"></div>
+        <div id="resultText"></div>
+
+        <div class="image-wrapper" id="displayArea" style="display: none;">
+            <img id="originalImage" alt="Original X-Ray">
+            <img id="heatmapImage" alt="AI Heatmap Overlay">
+        </div>
+
+        <div class="controls" id="sliderControls">
+            <label for="opacitySlider">Adjust Heatmap Visibility: </label>
+            <input type="range" id="opacitySlider" min="0" max="1" step="0.05" value="0.6" oninput="updateOpacity(this.value)">
+        </div>
+    </div>
+
+    <script>
+        function updateOpacity(val) {
+            document.getElementById('heatmapImage').style.opacity = val;
+        }
+
+        async function analyzeImage() {
+            const fileInput = document.getElementById('imageInput');
+            if (fileInput.files.length === 0) {
+                alert("Please select an X-ray image first.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const originalImgTag = document.getElementById('originalImage');
+            const heatmapImgTag = document.getElementById('heatmapImage');
+            
+            // Instantly show the uploaded image
+            originalImgTag.src = URL.createObjectURL(file);
+            heatmapImgTag.src = ""; // Clear old heatmap
+            document.getElementById('displayArea').style.display = "inline-block";
+            document.getElementById('sliderControls').style.display = "none";
+            document.getElementById('resultText').innerText = "";
+            document.getElementById('status').innerText = "Processing through local PyTorch model...";
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                // Send to your local Uvicorn FastAPI server
+                const response = await fetch("http://127.0.0.1:8000/predict", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Server failed to process image.");
+
+                const data = await response.json();
+                
+                // Display Results
+                document.getElementById('resultText').innerText = "Detected: " + data.disease;
+                heatmapImgTag.src = data.heatmap;
+                
+                // Show the slider controls
+                document.getElementById('sliderControls').style.display = "block";
+                document.getElementById('status').innerText = "Analysis Complete.";
+
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status').innerText = "Error: Make sure your backend.py server is running!";
+                document.getElementById('status').style.color = "red";
+            }
+        }
+    </script>
+</body>
+</html>
