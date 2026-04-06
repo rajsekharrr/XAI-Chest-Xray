@@ -125,9 +125,10 @@
 
                 const data = await response.json();
                 
-                // Display Results
-                document.getElementById('resultText').innerText = "Detected: " + data.disease;
+                // --- UPDATED: Display Results with Confidence Score ---
+                document.getElementById('resultText').innerText = "Detected: " + data.disease + " (" + data.confidence + "% Confidence)";
                 heatmapImgTag.src = data.heatmap;
+                // ----------------------------------------------------
                 
                 // Show the slider controls
                 document.getElementById('sliderControls').style.display = "block";

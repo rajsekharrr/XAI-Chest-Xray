@@ -59,6 +59,20 @@ async def predict(file: UploadFile = File(...)):
         predicted_idx = torch.argmax(probabilities).item()
         disease_name = CLASSES[predicted_idx]
         
+        # --- NEW CODE: Calculate "Accuracy" / Confidence ---
+        confidence_score = round(probabilities[predicted_idx].item() * 100, 2)
+        
+        # --- NEW CODE: Print Convolution Math for the Professor ---
+        print("\n=== EXECUTING CONVOLUTIONAL NEURAL NETWORK ===")
+        print(f"1. Input Image Tensor Shape: {input_tensor.shape} (1 image, 3 RGB channels, 224x224 pixels)")
+        
+        # Pass the image through just the very first Convolution layer
+        first_conv_layer_output = model.features[0](input_tensor)
+        
+        print(f"2. After 1st Convolution Layer: {first_conv_layer_output.shape}")
+        print(f"-> The 2D Convolution applied 32 mathematical filters, turning 3 colors into 32 feature maps!")
+        print("==============================================\n")
+        
     ig = IntegratedGradients(model)
     attributions, _ = ig.attribute(input_tensor, target=predicted_idx, return_convergence_delta=True)
     heatmap = np.sum(np.abs(attributions.squeeze().detach().numpy()), axis=0)
@@ -86,7 +100,9 @@ async def predict(file: UploadFile = File(...)):
     heatmap_img.save(buffered, format="PNG")
     heatmap_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
+    # Added confidence to the return dictionary
     return {
         "disease": disease_name,
+        "confidence": confidence_score,
         "heatmap": f"data:image/png;base64,{heatmap_b64}"
     }
